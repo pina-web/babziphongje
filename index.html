@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>홍제 한 끼 · 맛집 지도와 점심 룰렛</title>
+<meta name="description" content="홍제동 식당을 실제 지도에서 둘러보고, 먹고 싶은 곳을 골라 점심 룰렛을 돌려보세요.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+<style>
+:root{--ink:#283a33;--muted:#64746b;--orange:#dc6039;--green:#365e4b;--line:#e4e8dd;--paper:#ffffff;--soft:#f5f7f1}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.5}
+button,input,select{font:inherit}
+button{cursor:pointer;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 13px;color:var(--ink);font-weight:650;touch-action:manipulation}
+button:hover{background:#f0f3ea}button:disabled{opacity:.45;cursor:default}
+a{color:var(--green);text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
+.wrap{max-width:1540px;margin:auto;padding:24px 32px}
+header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:20px;gap:12px}
+.brand{font-size:24px;font-weight:850;letter-spacing:-1px}.brand span{color:var(--orange)}
+.pill{background:#ecf0e6;border-radius:30px;padding:6px 12px;font-size:12px;white-space:nowrap}
+.hero{display:flex;align-items:end;justify-content:space-between;padding:25px 0 22px;gap:20px}
+h1{font-size:clamp(26px,3vw,40px);letter-spacing:-1.6px;line-height:1.25;margin:0 0 10px}h1 em{font-style:normal;color:var(--orange)}
+p{margin:6px 0}.sub{color:var(--muted);font-size:14px}
+.stats{display:flex;gap:24px;white-space:nowrap}.stats b{display:block;font-size:28px;color:var(--green)}.stats span{font-size:12px;color:var(--muted)}
+.topgrid{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:20px;align-items:stretch}
+.panel{background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 6px 25px #283a3308}
+.panelhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;gap:8px;flex-wrap:wrap}
+.panelhead h2{font-size:17px;margin:0}
+.maptools{display:flex;gap:6px;flex-wrap:wrap}.maptools button{font-size:12px;padding:7px 10px}
+.topgrid>.panel:first-child{display:flex;flex-direction:column}#map{flex:1;min-height:500px;background:#eef1ea;z-index:0}
+.mapfoot{padding:10px 18px;font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:4px;border:2px solid #fff;box-shadow:0 0 0 1px #9aa99b}
+/* map pins */
+.pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;background:#fff;border:2px solid #8fa292;box-shadow:0 2px 6px #0003}
+.pin b{transform:rotate(45deg);font-size:11px;color:var(--green)}
+.pin.on{background:var(--green);border-color:#fff}.pin.on b{color:#fff}
+.pin.focus{background:var(--orange);border-color:#fff;width:36px;height:36px}.pin.focus b{color:#fff;font-size:12px}
+.station{background:var(--ink);color:#fff;font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 6px #0003;text-align:center}
+.me{width:18px;height:18px;border-radius:50%;background:#2f7de1;border:3px solid #fff;box-shadow:0 0 0 6px #2f7de133}
+.marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:#365e4b33}
+.marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div{background:#365e4b;color:#fff;font-weight:800}
+.leaflet-popup-content{margin:12px 14px;font-family:inherit}
+.pop b{font-size:15px}.pop p{font-size:12px;color:var(--muted);margin:3px 0}
+.pop .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.pop button{font-size:12px;padding:5px 9px}.pop a{font-size:12px}
+/* roulette */
+.roulette{padding:22px;background:var(--soft);text-align:center}
+.eyebrow{font-size:12px;letter-spacing:2px;color:var(--green);font-weight:750}
+.roulette h2{margin:5px 0;font-size:25px;letter-spacing:-1px}
+.wheelwrap{position:relative;max-width:300px;margin:12px auto 8px;aspect-ratio:1}
+.pointer{position:absolute;top:-1px;left:calc(50% - 10px);border-left:10px solid transparent;border-right:10px solid transparent;border-top:22px solid var(--ink);z-index:1}
+#wheel{width:100%;height:100%}
+.primary{background:var(--orange);color:#fff;border-color:var(--orange)}.primary:hover{background:#bd4b27}
+.spin{width:100%;font-size:17px;border-radius:12px;padding:14px}
+.result{margin-top:12px;background:#fff;border:1px solid #dde3d5;border-radius:12px;padding:12px;min-height:71px;font-size:13px}
+.result strong{font-size:21px;color:var(--orange);display:block}.result a,.result button{margin:4px 4px 0;font-size:12px}
+.result button{padding:4px 8px}
+.candidates,.history{font-size:12px;margin-top:9px;color:var(--muted)}
+/* list */
+.sectiontitle{display:flex;align-items:center;justify-content:space-between;margin:28px 0 12px;gap:10px}
+h2{margin:0;font-size:21px}
+.searchbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.search{flex:1;min-width:210px}.search input{width:100%;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+select{padding:11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.filters button{font-size:13px;border-radius:30px;padding:7px 12px}
+.filters button.active{background:var(--green);color:#fff;border-color:var(--green)}
+.listtools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;margin:10px 0}
+.listtools button{font-size:12px;padding:6px 10px}.listtools .status{margin-left:auto;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card{border:1px solid var(--line);background:#fff;border-radius:14px;padding:15px;display:flex;gap:11px;min-width:0;transition:.2s}
+.card.selected{border-color:#93af97;background:#fbfdf8}.card.focused{outline:2px solid var(--orange)}
+.card input{width:21px;height:21px;accent-color:var(--green);flex-shrink:0;margin:4px 0;cursor:pointer}
+.cardcontent{flex:1;min-width:0}
+.cardtop{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.num{font-size:11px;color:var(--muted)}.tag{font-size:11px;padding:2px 7px;border-radius:5px;background:#eef2e8;color:#4d6755;white-space:nowrap}
+.card h3{font-size:17px;margin:6px 0 4px;letter-spacing:-.5px}.card h3 label{cursor:pointer}
+.card p{font-size:12px;color:var(--muted)}.card .menu{color:var(--ink);font-size:13px}
+.card .dist{color:var(--green);font-weight:650}
+.card .links{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px;font-size:12px}
+.links button{font-size:12px;padding:5px 8px}.card .note{color:#a26638;font-size:11px}
+.empty{padding:45px;text-align:center;grid-column:1/-1;background:#fff;border:1px dashed var(--line);border-radius:14px}
+.bottom{margin:26px 0;padding:20px;background:var(--soft);border-radius:15px;font-size:12px;color:var(--muted)}
+.bottom summary{font-size:14px;font-weight:700;cursor:pointer;color:var(--ink)}.bottom li{margin:7px 0}
+.footactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;align-items:center}.footactions button{font-size:12px}
+dialog{border:1px solid var(--line);border-radius:18px;width:min(460px,94%);padding:24px;color:var(--ink);background:#fff}
+dialog::backdrop{background:#17342877}
+dialog label{display:block;font-size:13px;margin-top:14px}
+dialog input,dialog select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin-top:5px}
+dialog .actions{display:flex;justify-content:end;gap:10px;margin-top:20px}
+.pickhint{font-size:12px;color:var(--muted);margin-top:8px}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;z-index:2000;font-size:13px;max-width:90%;text-align:center}
+#toast:empty{display:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+body.picking #map{cursor:crosshair}
+@media(min-width:1400px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:950px){.wrap{padding:18px}.topgrid{grid-template-columns:minmax(0,1fr) 320px}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.hero .stats{display:none}#map{min-height:440px}}
+@media(max-width:700px){.wrap{padding:14px}.topgrid{grid-template-columns:1fr}#map{min-height:380px}.cards{grid-template-columns:1fr}.wheelwrap{max-width:270px}.brand{font-size:21px}.pill{font-size:10px}.hero{padding:20px 0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="brand">홍제 <span>한 끼.</span></div><span class="pill">우리 동네 점심 탐험 · 2026.10.07 조사</span></header>
+<section class="hero"><div><h1>오늘 점심,<br><em>어디로 갈까요?</em></h1><p class="sub">지도에서 둘러보고, 먹고 싶은 곳을 체크하세요. 마지막 고민은 룰렛에게.</p></div><div class="stats"><div><b id="totalStat">0</b><span>주변 식당 후보</span></div><div><b id="pickStat">0</b><span>내가 고른 곳</span></div></div></section>
+
+<div class="topgrid">
+<section class="panel">
+  <div class="panelhead"><h2>홍제동 맛집 지도</h2>
+    <div class="maptools"><button id="fit">전체 보기</button><button id="station">홍제역</button><button id="locateMe">📍 내 위치</button></div>
+  </div>
+  <div id="map" role="region" aria-label="홍제동 식당 지도"></div>
+  <div class="mapfoot">
+    <div class="legend"><span><i style="background:#365e4b"></i>룰렛 후보</span><span><i style="background:#fff"></i>후보 아님</span><span><i style="background:#dc6039"></i>방금 고른 곳</span><span id="mapCount"></span></div>
+    핀을 누르면 후보 담기·네이버/카카오 지도 길찾기를 할 수 있어요. 좌표는 주소 기준이라 출입구와 다를 수 있습니다.
+  </div>
+</section>
+
+<aside class="panel roulette">
+  <div class="eyebrow">고르는 즐거움, 먹는 즐거움</div>
+  <h2>오늘의 점심 룰렛</h2>
+  <p class="sub">선택한 식당 중 한 곳을 골라 드려요.</p>
+  <div class="wheelwrap"><span class="pointer"></span><canvas id="wheel" width="640" height="640" aria-label="선택된 식당을 같은 확률로 뽑는 룰렛"></canvas></div>
+  <button class="primary spin" id="spin">점심 메뉴 고르기 ↻</button>
+  <div class="candidates" id="candidateCount"></div>
+  <div class="result" id="result" aria-live="polite">마음에 드는 식당을 체크하고<br>룰렛을 돌려보세요.</div>
+  <div class="history" id="history"></div>
+</aside>
+</div>
+
+<section>
+  <div class="sectiontitle"><div><h2>먹고 싶은 곳을 골라보세요</h2><p class="sub">체크한 식당만 룰렛에 들어갑니다. 검색을 바꿔도 선택은 유지돼요.</p></div><button id="add">＋ 식당 추가</button></div>
+  <div class="searchbar">
+    <div class="search"><label class="sr" for="query">식당, 음식 또는 주소 검색</label><input id="query" type="search" placeholder="식당 이름, 음식 종류, 도로명 검색"></div>
+    <select id="scope" aria-label="목록 범위"><option value="all">모든 식당</option><option value="selected">선택한 식당만</option><option value="popular">리뷰·소개 출처가 있는 곳</option></select>
+    <select id="sort" aria-label="정렬"><option value="number">번호순</option><option value="near">가까운 순</option><option value="name">이름순</option></select>
+  </div>
+  <div class="filters" id="filters"></div>
+  <div class="listtools"><button id="selectVisible">검색 결과 모두 선택</button><button id="clearVisible">검색 결과 선택 해제</button><button id="clearAll">전체 선택 해제</button><span id="listCount" class="status"></span></div>
+  <div id="cards" class="cards"></div>
+</section>
+
+<details class="bottom"><summary>수록 범위와 정보 출처 · 이용 안내</summary><ul>
+<li>홍제동을 중심으로 홍제역·무악재·인왕시장·문화촌 인근 식당과 홍은동 포방터시장 1곳을 수록했습니다. 모든 맛집을 전수 조사한 목록이나 맛 순위는 아닙니다.</li>
+<li>리뷰·소개 출처가 있는 식당과 공개 인허가 기반 주변 식당 목록을 함께 모았습니다. 각 카드의 ‘출처’에서 확인할 수 있습니다.</li>
+<li>조사일: 2026년 10월 7일. 영업시간·휴무·가격·실시간 영업 여부는 검증하지 않았습니다. 방문 전 네이버지도에서 확인해주세요.</li>
+<li>거리는 기준점(홍제역 또는 내 위치)에서의 직선거리입니다. 실제 걷는 거리는 더 길 수 있어요.</li>
+<li>좌표가 없는 식당은 ‘지도에 위치 지정’으로 직접 핀을 찍을 수 있고, 지정한 위치는 이 브라우저에 저장됩니다. 문화촌초밥집은 같은 도로명 주소 건물의 좌표를 사용합니다.</li>
+<li>지도 배경은 OpenStreetMap을 사용하며 인터넷 연결이 필요합니다. ‘내 위치’는 브라우저 위치 권한을 허용해야 동작하고, 위치 정보는 어디에도 전송되지 않습니다.</li>
+<li>선택한 모든 식당이 동일한 확률로 뽑힙니다. 검색 필터는 룰렛 후보를 바꾸지 않습니다.</li>
+<li>선택·추가 내역은 현재 브라우저에 저장됩니다. 다른 기기로 옮기려면 백업 파일을 이용하세요.</li>
+</ul><div class="footactions"><button id="export">선택·추가 내역 백업</button><button id="import">백업 불러오기</button><input type="file" id="importFile" accept="application/json,.json" hidden><a href="https://map.naver.com/p/search/%ED%99%8D%EC%A0%9C%EB%8F%99%20%EB%A7%9B%EC%A7%91" target="_blank" rel="noopener">네이버에서 주변 맛집 더 찾기 ↗</a></div></details>
+<footer class="sub" style="text-align:center;padding-bottom:16px">작은 골목에도, 맛있는 한 끼가 있어요.</footer>
+</div>
+
+<dialog id="addDialog"><form id="addForm"><h2>내가 아는 식당 추가</h2><p class="sub">추가한 뒤 카드의 ‘지도에 위치 지정’으로 핀을 찍을 수 있어요.</p>
+<label>식당 이름<input id="newName" required maxlength="50"></label>
+<label>주소<input id="newAddr" required maxlength="150" placeholder="서울 서대문구 …"></label>
+<label>음식 종류<select id="newCat"></select></label>
+<label>메뉴 또는 메모<input id="newMenu" maxlength="100"></label>
+<div class="actions"><button type="button" id="cancelAdd">취소</button><button class="primary" type="submit">추가하고 선택</button></div></form></dialog>
+<div id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script>
+'use strict';
+const BASE=[{"name": "문화촌초밥집", "addr": "서울특별시 서대문구 세무서7길 12-6 1층", "coord": [37.5916254, 126.9465436], "type": "일식", "menu": "초밥 · 우동", "url": "https://www.diningcode.com/profile.php?rid=3D4kN35RjPao", "coordNote": "같은 주소 건물의 공개 좌표", "popular": true, "cat": "일식·돈까스", "id": "r1", "number": 1}, {"name": "적사부", "addr": "서울특별시 서대문구 통일로37길 38", "coord": null, "type": "중식", "menu": "짜장면 · 고기짬뽕", "url": "https://www.diningcode.com/profile.php?rid=P6yCF3cMN32V", "popular": true, "cat": "중식", "id": "r2", "number": 2}, {"name": "당가원", "addr": "서울특별시 서대문구 세무서7길 20", "coord": null, "type": "중식", "menu": "차돌짬뽕", "url": "https://www.diningcode.com/profile.php?rid=erfUCWIaNaAy", "popular": true, "cat": "중식", "id": "r3", "number": 3}, {"name": "담은식당", "addr": "서울특별시 서대문구 통일로 462-10", "coord": null, "type": "한식", "menu": "동태찌개 · 제육볶음 · 순두부찌개", "url": "https://polle.com/place/3su9uv/담은%20식당", "popular": true, "cat": "한식", "id": "r4", "number": 4}, {"name": "어머니와 아들", "addr": "서울특별시 서대문구 홍은중앙로 100-1", "coord": null, "type": "한식", "menu": "닭볶음탕", "url": "https://tongblog.sdm.go.kr/4979?category=529066", "popular": true, "coordNote": "홍은동 포방터시장 / 현재 영업 여부 확인 필요", "cat": "한식", "id": "r5", "number": 5}, {"name": "여리네닭갈비", "url": "https://place.clariosync.com/p/707836/%EC%97%AC%EB%A6%AC%EB%84%A4%EB%8B%AD%EA%B0%88%EB%B9%84", "addr": "서울특별시 서대문구 통일로37길 23 (홍제동)", "coord": [37.5871841, 126.9442165], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "고기·구이", "id": "r6", "number": 6}, {"name": "가이오국수", "url": "https://place.clariosync.com/p/735804/%EA%B0%80%EC%9D%B4%EC%98%A4%EA%B5%AD%EC%88%98", "addr": "서울특별시 서대문구 통일로37길 15 (홍제동,1층)", "coord": [37.5875202, 126.9443048], "state": "영업 중", "type": "분식", "date": "2026-08-24", "cat": "면·분식", "id": "r7", "number": 7}, {"name": "원조국수전문점", "url": "https://place.clariosync.com/p/787780/%EC%9B%90%EC%A1%B0%EA%B5%AD%EC%88%98%EC%A0%84%EB%AC%B8%EC%A0%90", "addr": "서울특별시 서대문구 인왕시장길 18, 인왕시장 4호동 1층 2호,5호 (홍제동)", "coord": [37.5910699, 126.94347], "state": "영업 중", "type": "분식", "date": "2026-08-24", "cat": "면·분식", "id": "r8", "number": 8}, {"name": "홍제동잔치집", "url": "https://place.clariosync.com/p/952382/%ED%99%8D%EC%A0%9C%EB%8F%99%EC%9E%94%EC%B9%98%EC%A7%91", "addr": "서울특별시 서대문구 통일로 428-1, 1층 (홍제동)", "coord": [37.5876256, 126.9459087], "state": "영업 중", "type": "냉면집", "date": "2026-08-24", "cat": "면·분식", "id": "r9", "number": 9}, {"name": "밥보다 국시", "url": "https://place.clariosync.com/p/7459135/%EB%B0%A5%EB%B3%B4%EB%8B%A4-%EA%B5%AD%EC%8B%9C", "addr": "서울특별시 서대문구 세검정로3길 64, 1층 (홍제동)", "coord": [37.5938624, 126.9474125], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "면·분식", "id": "r10", "number": 10}, {"name": "유진아구찜", "url": "https://place.clariosync.com/p/7303564/%EC%9C%A0%EC%A7%84%EC%95%84%EA%B5%AC%EC%B0%9C", "addr": "서울특별시 서대문구 통일로 484, 유진상가, 유진아파트,공유캠퍼스 1층 F열 39,40호 (홍제동)", "coord": [37.591396, 126.9424799], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "한식", "id": "r11", "number": 11}, {"name": "배나무집소반", "url": "https://place.clariosync.com/p/7306729/%EB%B0%B0%EB%82%98%EB%AC%B4%EC%A7%91%EC%86%8C%EB%B0%98", "addr": "서울특별시 서대문구 홍제원4길 8, 1층 (홍제동)", "coord": [37.5863664, 126.9473672], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "한식", "id": "r12", "number": 12}, {"name": "자가제면 홍제우동", "url": "https://place.clariosync.com/p/7318909/%EC%9E%90%EA%B0%80%EC%A0%9C%EB%A9%B4-%ED%99%8D%EC%A0%9C%EC%9A%B0%EB%8F%99", "addr": "서울특별시 서대문구 세무서7길 12-6, 1층 102호 (홍제동, 대흥주택)", "coord": [37.5916254, 126.9465436], "state": "영업 중", "type": "일식", "date": "2026-09-05", "cat": "일식·돈까스", "id": "r13", "number": 13}, {"name": "따뜻한밥상홍제", "url": "https://place.clariosync.com/p/7350448/%EB%94%B0%EB%9C%BB%ED%95%9C%EB%B0%A5%EC%83%81%ED%99%8D%EC%A0%9C", "addr": "서울특별시 서대문구 통일로40길 9, 2층 (홍제동)", "coord": [37.5903413, 126.9432899], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "한식", "id": "r14", "number": 14}, {"name": "해피돈까스", "url": "https://place.clariosync.com/p/7365936/%ED%95%B4%ED%94%BC%EB%8F%88%EA%B9%8C%EC%8A%A4", "addr": "서울특별시 서대문구 세검정로 52-10, 1층 107호 (홍제동)", "coord": [37.5920291, 126.9465408], "state": "영업 중", "type": "경양식", "date": "2026-09-05", "cat": "일식·돈까스", "id": "r15", "number": 15}, {"name": "참숯대박갈비", "url": "https://place.clariosync.com/p/7391096/%EC%B0%B8%EC%88%AF%EB%8C%80%EB%B0%95%EA%B0%88%EB%B9%84", "addr": "서울특별시 서대문구 통일로 442-9, 동화빌딩 1층 (홍제동)", "coord": [37.5888549, 126.9449798], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "고기·구이", "id": "r16", "number": 16}, {"name": "화춘장 중화요리", "url": "https://place.clariosync.com/p/7435779/%ED%99%94%EC%B6%98%EC%9E%A5-%EC%A4%91%ED%99%94%EC%9A%94%EB%A6%AC", "addr": "서울특별시 서대문구 통일로37길 9, 지상1층 (홍제동)", "coord": [37.5877424, 126.9444316], "state": "영업 중", "type": "분식", "date": "2026-09-05", "cat": "중식", "popular": true, "menu": "짜장면 · 해물짬뽕", "extra": "https://www.diningcode.com/profile.php?rid=2xX6Mk3mjOZF", "id": "r17", "number": 17}, {"name": "더 치킨맨", "url": "https://place.clariosync.com/p/7579275/%EB%8D%94-%EC%B9%98%ED%82%A8%EB%A7%A8", "addr": "서울특별시 서대문구 통일로 364, 1층 (홍제동)", "coord": [37.5828296, 126.9503921], "state": "영업 중", "type": "김밥(도시락", "date": "2026-09-05", "cat": "치킨·주점", "id": "r18", "number": 18}, {"name": "제주식탁", "url": "https://place.clariosync.com/p/707508/%EC%A0%9C%EC%A3%BC%EC%8B%9D%ED%83%81", "addr": "서울특별시 서대문구 통일로39가길 64, 1층 (홍제동)", "coord": [37.5903898, 126.9414293], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "한식", "id": "r19", "number": 19}, {"name": "서대문영양족발", "url": "https://place.clariosync.com/p/710535/%EC%84%9C%EB%8C%80%EB%AC%B8%EC%98%81%EC%96%91%EC%A1%B1%EB%B0%9C", "addr": "서울특별시 서대문구 통일로 377 (홍제동, 지하1층,지상1층)", "coord": [37.583759, 126.9491612], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "고기·구이", "id": "r20", "number": 20}, {"name": "토속 순대국", "url": "https://place.clariosync.com/p/718762/%ED%86%A0%EC%86%8D-%EC%88%9C%EB%8C%80%EA%B5%AD", "addr": "서울특별시 서대문구 모래내로 381, 지상1층 (홍제동)", "coord": [37.5832354, 126.9378395], "state": "영업 중", "type": "한식", "date": "2026-09-05", "cat": "한식", "id": "r21", "number": 21}, {"name": "포메인 홍제점", "url": "https://place.clariosync.com/p/720413/%ED%8F%AC%EB%A9%94%EC%9D%B8-%ED%99%8D%EC%A0%9C%EC%A0%90", "addr": "서울특별시 서대문구 통일로 397, B302호 (홍제동, 인왕산한신휴플러스)", "coord": [37.5852095, 126.9473649], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "아시안", "id": "r22", "number": 22}, {"name": "런치바스켓", "url": "https://place.clariosync.com/p/723672/%EB%9F%B0%EC%B9%98%EB%B0%94%EC%8A%A4%EC%BC%93", "addr": "서울특별시 서대문구 간호대로1길 10, 1층 (홍제동)", "coord": [37.596157, 126.948525], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r23", "number": 23}, {"name": "한판족발", "url": "https://place.clariosync.com/p/731310/%ED%95%9C%ED%8C%90%EC%A1%B1%EB%B0%9C", "addr": "서울특별시 서대문구 간호대로 15 (홍제동,지상1층)", "coord": [37.5965907, 126.948404], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "고기·구이", "id": "r24", "number": 24}, {"name": "미담한상", "url": "https://place.clariosync.com/p/733607/%EB%AF%B8%EB%8B%B4%ED%95%9C%EC%83%81", "addr": "서울특별시 서대문구 통일로 397 (홍제동,인왕산 한신휴플러스상가 B301호)", "coord": [37.5852095, 126.9473649], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r25", "number": 25}, {"name": "산내들", "url": "https://place.clariosync.com/p/738248/%EC%82%B0%EB%82%B4%EB%93%A4", "addr": "서울특별시 서대문구 통일로40안길 35, 1층 (홍제동)", "coord": [37.5915784, 126.9445632], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r26", "number": 26}, {"name": "홍제찹쌀순대국", "url": "https://place.clariosync.com/p/739626/%ED%99%8D%EC%A0%9C%EC%B0%B9%EC%8C%80%EC%88%9C%EB%8C%80%EA%B5%AD", "addr": "서울특별시 서대문구 세검정로3길 72-8 (홍제동,지상1층)", "coord": [37.5937386, 126.9474636], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r27", "number": 27}, {"name": "강고집", "url": "https://place.clariosync.com/p/746898/%EA%B0%95%EA%B3%A0%EC%A7%91", "addr": "서울특별시 서대문구 통일로36길 14 (홍제동,(지상1,2층))", "coord": [37.5874895, 126.9467093], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "고기·구이", "id": "r28", "number": 28}, {"name": "원마산아구찜 홍제점", "url": "https://place.clariosync.com/p/748427/%EC%9B%90%EB%A7%88%EC%82%B0%EC%95%84%EA%B5%AC%EC%B0%9C-%ED%99%8D%EC%A0%9C%EC%A0%90", "addr": "서울특별시 서대문구 통일로 387 (홍제동,(지상1층))", "coord": [37.5844025, 126.9484928], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r29", "number": 29}, {"name": "60계치킨 홍제홍은점", "url": "https://place.clariosync.com/p/754043/60%EA%B3%84%EC%B9%98%ED%82%A8-%ED%99%8D%EC%A0%9C%ED%99%8D%EC%9D%80%EC%A0%90", "addr": "서울특별시 서대문구 세무서길 73 (홍제동,(지상1층))", "coord": [37.5911848, 126.9466176], "state": "영업 중", "type": "호프/통닭", "date": "2026-08-24", "cat": "치킨·주점", "id": "r30", "number": 30}, {"name": "92 닭 숯불 바베큐", "url": "https://place.clariosync.com/p/755293/92-%EB%8B%AD-%EC%88%AF%EB%B6%88-%EB%B0%94%EB%B2%A0%ED%81%90", "addr": "서울특별시 서대문구 세검정로 63, 1층 (홍제동)", "coord": [37.5935308, 126.9475524], "state": "영업 중", "type": "횟집", "date": "2026-08-24", "cat": "치킨·주점", "id": "r31", "number": 31}, {"name": "피자헛 홍제본점", "url": "https://place.clariosync.com/p/759208/%ED%94%BC%EC%9E%90%ED%97%9B-%ED%99%8D%EC%A0%9C%EB%B3%B8%EC%A0%90", "addr": "서울특별시 서대문구 세검정로 73, 1층 (홍제동)", "coord": [37.5943963, 126.9478998], "state": "영업 중", "type": "패스트푸드", "date": "2026-08-24", "cat": "양식·가벼운 한 끼", "id": "r32", "number": 32}, {"name": "삼대냉면", "url": "https://place.clariosync.com/p/766397/%EC%82%BC%EB%8C%80%EB%83%89%EB%A9%B4", "addr": "서울특별시 서대문구 세무서1길 28 (홍제동,(지상1층))", "coord": [37.5891738, 126.9442674], "state": "영업 중", "type": "분식", "date": "2026-08-24", "cat": "면·분식", "id": "r33", "number": 33}, {"name": "굽네치킨(홍제1호)", "url": "https://place.clariosync.com/p/766958/%EA%B5%BD%EB%84%A4%EC%B9%98%ED%82%A8%28%ED%99%8D%EC%A0%9C1%ED%98%B8%29", "addr": "서울특별시 서대문구 모래내로 464 (홍제동,(지상1층))", "coord": [37.5856475, 126.9463174], "state": "영업 중", "type": "통닭(치킨", "date": "2026-08-24", "cat": "치킨·주점", "id": "r34", "number": 34}, {"name": "포마토김밥", "url": "https://place.clariosync.com/p/768920/%ED%8F%AC%EB%A7%88%ED%86%A0%EA%B9%80%EB%B0%A5", "addr": "서울특별시 서대문구 세무서2길 2 (홍제동,(내2호))", "coord": [37.588581, 126.945798], "state": "영업 중", "type": "분식", "date": "2026-08-24", "cat": "면·분식", "id": "r35", "number": 35}, {"name": "우리냉면", "url": "https://place.clariosync.com/p/771031/%EC%9A%B0%EB%A6%AC%EB%83%89%EB%A9%B4", "addr": "서울특별시 서대문구 통일로39가길 1 (홍제동,(지상1층))", "coord": [37.5883334, 126.9436183], "state": "영업 중", "type": "호프/통닭", "date": "2026-08-24", "cat": "면·분식", "id": "r36", "number": 36}, {"name": "석산", "url": "https://place.clariosync.com/p/780556/%EC%84%9D%EC%82%B0", "addr": "서울특별시 서대문구 홍제내길 124 (홍제동,(지상2층))", "coord": [37.5877902, 126.9365142], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r37", "number": 37}, {"name": "낙원칼국수", "url": "https://place.clariosync.com/p/781355/%EB%82%99%EC%9B%90%EC%B9%BC%EA%B5%AD%EC%88%98", "addr": "서울특별시 서대문구 모래내로 377-1 (홍제동,(지상1층))", "coord": [37.5830177, 126.9376019], "state": "영업 중", "type": "분식", "date": "2026-08-24", "cat": "면·분식", "id": "r38", "number": 38}, {"name": "교촌치킨", "url": "https://place.clariosync.com/p/788940/%EA%B5%90%EC%B4%8C%EC%B9%98%ED%82%A8", "addr": "서울특별시 서대문구 통일로 473 (홍제동,(나동 1층))", "coord": [37.5902802, 126.9419873], "state": "영업 중", "type": "횟집", "date": "2026-08-24", "cat": "치킨·주점", "id": "r39", "number": 39}, {"name": "네네치킨 홍제역점", "url": "https://place.clariosync.com/p/789865/%EB%84%A4%EB%84%A4%EC%B9%98%ED%82%A8-%ED%99%8D%EC%A0%9C%EC%97%AD%EC%A0%90", "addr": "서울특별시 서대문구 통일로39길 22-4, 1층 (홍제동)", "coord": [37.5883118, 126.9432151], "state": "영업 중", "type": "호프/통닭", "date": "2026-08-24", "cat": "치킨·주점", "id": "r40", "number": 40}, {"name": "소담", "url": "https://place.clariosync.com/p/789956/%EC%86%8C%EB%8B%B4", "addr": "서울특별시 서대문구 홍제내4길 4-6 (홍제동)", "coord": [37.5875279, 126.9364766], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r41", "number": 41}, {"name": "나트랑", "url": "https://place.clariosync.com/p/790636/%EB%82%98%ED%8A%B8%EB%9E%91", "addr": "서울특별시 서대문구 세무서2길 2 (홍제동,, 2호)", "coord": [37.588581, 126.945798], "state": "영업 중", "type": "기타", "date": "2026-08-24", "cat": "아시안", "id": "r42", "number": 42}, {"name": "싱싱샐러드 홍제점", "url": "https://place.clariosync.com/p/792328/%EC%8B%B1%EC%8B%B1%EC%83%90%EB%9F%AC%EB%93%9C-%ED%99%8D%EC%A0%9C%EC%A0%90", "addr": "서울특별시 서대문구 통일로 461, 1층 (홍제동)", "coord": [37.5894123, 126.9430136], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "양식·가벼운 한 끼", "id": "r43", "number": 43}, {"name": "축산정육식당홍제점", "url": "https://place.clariosync.com/p/793520/%EC%B6%95%EC%82%B0%EC%A0%95%EC%9C%A1%EC%8B%9D%EB%8B%B9%ED%99%8D%EC%A0%9C%EC%A0%90", "addr": "서울특별시 서대문구 통일로 479, 지상1층 (홍제동)", "coord": [37.5907668, 126.9415979], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "고기·구이", "id": "r44", "number": 44}, {"name": "에바다 생고기", "url": "https://place.clariosync.com/p/797768/%EC%97%90%EB%B0%94%EB%8B%A4-%EC%83%9D%EA%B3%A0%EA%B8%B0", "addr": "서울특별시 서대문구 세검정로3길 63, 2105, 2106, 2107호 (홍제동, 태영으뜸아파트)", "coord": [37.5936457, 126.946742], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "고기·구이", "id": "r45", "number": 45}, {"name": "뼈해장국전문", "url": "https://place.clariosync.com/p/798693/%EB%BC%88%ED%95%B4%EC%9E%A5%EA%B5%AD%EC%A0%84%EB%AC%B8", "addr": "서울특별시 서대문구 통일로36가길 23 (홍제동)", "coord": [37.5884886, 126.9458819], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r46", "number": 46}, {"name": "압구정닭꼬치", "url": "https://place.clariosync.com/p/806951/%EC%95%95%EA%B5%AC%EC%A0%95%EB%8B%AD%EA%BC%AC%EC%B9%98", "addr": "서울특별시 서대문구 세무서길 96, 1층 (홍제동)", "coord": [37.5919746, 126.9473684], "state": "영업 중", "type": "식육(숯불구이", "date": "2026-08-24", "cat": "치킨·주점", "id": "r47", "number": 47}, {"name": "여리네 닭갈비", "url": "https://place.clariosync.com/p/809323/%EC%97%AC%EB%A6%AC%EB%84%A4-%EB%8B%AD%EA%B0%88%EB%B9%84", "addr": "서울특별시 서대문구 간호대로 15, 1층 (홍제동)", "coord": [37.5965907, 126.948404], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "고기·구이", "id": "r48", "number": 48}, {"name": "남도한정식", "url": "https://place.clariosync.com/p/816041/%EB%82%A8%EB%8F%84%ED%95%9C%EC%A0%95%EC%8B%9D", "addr": "서울특별시 서대문구 통일로35길 11 (홍제동,(지하1층))", "coord": [37.5862066, 126.9459285], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r49", "number": 49}, {"name": "칼집삼겹", "url": "https://place.clariosync.com/p/817131/%EC%B9%BC%EC%A7%91%EC%82%BC%EA%B2%B9", "addr": "서울특별시 서대문구 통일로39가길 12, 1층 (홍제동)", "coord": [37.5888127, 126.9433734], "state": "영업 중", "type": "통닭(치킨", "date": "2026-08-24", "cat": "고기·구이", "id": "r50", "number": 50}, {"name": "김밥하우스", "url": "https://place.clariosync.com/p/823235/%EA%B9%80%EB%B0%A5%ED%95%98%EC%9A%B0%EC%8A%A4", "addr": "서울특별시 서대문구 세검정로 99 (홍제동,(지상1층))", "coord": [37.5963993, 126.9489861], "state": "영업 중", "type": "분식", "date": "2026-08-24", "cat": "면·분식", "id": "r51", "number": 51}, {"name": "춘천닭갈비", "url": "https://place.clariosync.com/p/841840/%EC%B6%98%EC%B2%9C%EB%8B%AD%EA%B0%88%EB%B9%84", "addr": "서울특별시 서대문구 세검정로 46, 15호 (홍제동)", "coord": [37.5920564, 126.9463315], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "고기·구이", "id": "r52", "number": 52}, {"name": "소소식탁", "url": "https://place.clariosync.com/p/850472/%EC%86%8C%EC%86%8C%EC%8B%9D%ED%83%81", "addr": "서울특별시 서대문구 통일로 475, 1층 (홍제동)", "coord": [37.5903873, 126.9419222], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "한식", "id": "r53", "number": 53}, {"name": "명갈비", "url": "https://place.clariosync.com/p/852087/%EB%AA%85%EA%B0%88%EB%B9%84", "addr": "서울특별시 서대문구 통일로 366, 무악빌딩 1층 (홍제동)", "coord": [37.5830511, 126.9502793], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "고기·구이", "id": "r54", "number": 54}, {"name": "모꼬치킨", "url": "https://place.clariosync.com/p/852846/%EB%AA%A8%EA%BC%AC%EC%B9%98%ED%82%A8", "addr": "서울특별시 서대문구 세무서길 31 (홍제동)", "coord": [37.589498, 126.9454697], "state": "영업 중", "type": "통닭(치킨", "date": "2026-08-24", "cat": "치킨·주점", "id": "r55", "number": 55}, {"name": "생마차 홍제역점", "url": "https://place.clariosync.com/p/855255/%EC%83%9D%EB%A7%88%EC%B0%A8-%ED%99%8D%EC%A0%9C%EC%97%AD%EC%A0%90", "addr": "서울특별시 서대문구 통일로37길 4 (홍제동)", "coord": [37.5880795, 126.9444492], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "치킨·주점", "id": "r56", "number": 56}, {"name": "비비큐치킨", "url": "https://place.clariosync.com/p/856077/%EB%B9%84%EB%B9%84%ED%81%90%EC%B9%98%ED%82%A8", "addr": "서울특별시 서대문구 세무서길 90, 지상1층 (홍제동)", "coord": [37.5916454, 126.947325], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "치킨·주점", "id": "r57", "number": 57}, {"name": "무학바지락칼국수", "url": "https://place.clariosync.com/p/856453/%EB%AC%B4%ED%95%99%EB%B0%94%EC%A7%80%EB%9D%BD%EC%B9%BC%EA%B5%AD%EC%88%98", "addr": "서울특별시 서대문구 통일로35길 6 (홍제동)", "coord": [37.5864183, 126.9461955], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "면·분식", "id": "r58", "number": 58}, {"name": "동해 생선구이", "url": "https://place.clariosync.com/p/860217/%EB%8F%99%ED%95%B4-%EC%83%9D%EC%84%A0%EA%B5%AC%EC%9D%B4", "addr": "서울특별시 서대문구 홍제원길 10 (홍제동)", "coord": [37.5865959, 126.9473475], "state": "영업 중", "type": "정종/대포집/소주방", "date": "2026-08-24", "cat": "한식", "id": "r59", "number": 59}, {"name": "곱분이곱창", "url": "https://place.clariosync.com/p/863591/%EA%B3%B1%EB%B6%84%EC%9D%B4%EA%B3%B1%EC%B0%BD", "addr": "서울특별시 서대문구 통일로 402, 1층 (홍제동, 다호)", "coord": [37.5857992, 126.9477612], "state": "영업 중", "type": "한식", "date": "2026-08-24", "cat": "고기·구이", "id": "r60", "number": 60}, {"name": "육로", "url": "https://place.clariosync.com/p/864225/%EC%9C%A1%EB%A1%9C", "addr": "서울특별시 서대문구 통일로39길 6 (홍제동)", "coord": [37.5884374, 126.9438148], "state": "영업 중", "type": "경양식", "date": "2026-08-24", "cat": "양식·가벼운 한 끼", "id": "r61", "number": 61}];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEY='hongje-lunch-v2', OLDKEY='hongje-lunch-v1';
+const cats=['전체','한식','중식','일식·돈까스','면·분식','고기·구이','아시안','양식·가벼운 한 끼','치킨·주점'];
+const STATION=[37.58893,126.94394]; // 홍제역(3호선) 부근
+let data=BASE.map(p=>({...p})), selected=new Set(), category='전체', busy=false, rotation=0, focused=null, history=[], pinned={}, origin={name:'홍제역',coord:STATION}, pickingId=null, toastTimer;
+
+function toast(s){$('toast').textContent=s;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').textContent='',3500)}
+const naver=p=>'https://map.naver.com/p/search/'+encodeURIComponent(p.name+' '+p.addr.replace('서울특별시 ','서울 '));
+const kakaoTo=p=>`https://map.kakao.com/link/to/${encodeURIComponent(p.name)},${p.coord[0]},${p.coord[1]}`;
+function meters(a,b){const R=6371000,r=Math.PI/180,dLat=(b[0]-a[0])*r,dLon=(b[1]-a[1])*r,x=Math.sin(dLat/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function distText(p){if(!p.coord)return'';const m=meters(origin.coord,p.coord);return `${origin.name}에서 ${m<1000?Math.round(m/10)*10+'m':(m/1000).toFixed(1)+'km'} · 도보 약 ${Math.max(1,Math.round(m*1.3/67))}분`}
+
+/* ---------- 저장 ---------- */
+function validCoord(c){return Array.isArray(c)&&c.length===2&&c.every(n=>typeof n==='number'&&isFinite(n))&&c[0]>37.4&&c[0]<37.8&&c[1]>126.7&&c[1]<127.2}
+function customValid(p){return p&&typeof p.id==='string'&&/^u[0-9]{10,20}$/.test(p.id)&&typeof p.name==='string'&&p.name.length>0&&p.name.length<=50&&typeof p.addr==='string'&&p.addr.length<=150&&cats.includes(p.cat)&&p.cat!=='전체'&&typeof p.menu==='string'&&p.menu.length<=100}
+function normalizeCustom(p,i){return{id:p.id,name:p.name,addr:p.addr,cat:p.cat,menu:p.menu,custom:true,coord:null,number:BASE.length+i+1}}
+function applyPinned(){data.forEach(p=>{if(pinned[p.id]&&!BASE.find(b=>b.id===p.id&&b.coord)){p.coord=pinned[p.id];p.userPinned=true}})}
+function load(s){
+  data=[...BASE.map(p=>({...p})),...(s.custom||[]).filter(customValid).map(normalizeCustom)];
+  pinned={};if(s.pinned&&typeof s.pinned==='object')for(const[k,v]of Object.entries(s.pinned))if(validCoord(v)&&data.some(p=>p.id===k))pinned[k]=v;
+  applyPinned();
+  selected=new Set((s.selected||[]).filter(id=>data.some(p=>p.id===id)));
+  history=Array.isArray(s.history)?s.history.filter(x=>typeof x==='string').slice(0,4):[];
+}
+try{const raw=localStorage.getItem(KEY)||localStorage.getItem(OLDKEY);const s=raw?JSON.parse(raw):null;if(s)load(s);else selected=new Set(BASE.filter(p=>p.popular).map(p=>p.id))}catch{selected=new Set(BASE.filter(p=>p.popular).map(p=>p.id))}
+function state(){return{version:2,custom:data.filter(p=>p.custom).map(({id,name,addr,cat,menu})=>({id,name,addr,cat,menu})),selected:[...selected],history,pinned}}
+let saveWarned=false;function save(){try{localStorage.setItem(KEY,JSON.stringify(state()))}catch{if(!saveWarned){toast('이 브라우저에서는 자동 저장이 제한됩니다. 백업을 이용하세요.');saveWarned=true}}}
+
+/* ---------- 목록 ---------- */
+function visible(){
+  const q=$('query').value.trim().toLowerCase(),scope=$('scope').value,sort=$('sort').value;
+  const vs=data.filter(p=>(category==='전체'||p.cat===category)&&(scope!=='selected'||selected.has(p.id))&&(scope!=='popular'||p.popular)&&(!q||[p.name,p.menu,p.addr,p.cat].join(' ').toLowerCase().includes(q)));
+  if(sort==='near')vs.sort((a,b)=>(a.coord?meters(origin.coord,a.coord):1e9)-(b.coord?meters(origin.coord,b.coord):1e9));
+  else if(sort==='name')vs.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  return vs;
+}
+function toggle(id){if(busy)return toast('룰렛이 멈춘 뒤 후보를 변경해주세요.');selected.has(id)?selected.delete(id):selected.add(id);rotation=0;render();save()}
+function sourceLink(p){const a=p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">출처 ↗</a>`:'<span>직접 추가</span>';return a+(p.extra?` <a href="${esc(p.extra)}" target="_blank" rel="noopener">리뷰 ↗</a>`:'')}
+function card(p){
+  const on=selected.has(p.id);
+  return `<article class="card ${on?'selected':''} ${focused===p.id?'focused':''}" id="card-${p.id}">
+  <input type="checkbox" id="check-${p.id}" data-check="${p.id}" ${on?'checked':''} ${busy?'disabled':''} aria-label="${esc(p.name)} 룰렛 후보 선택">
+  <div class="cardcontent">
+    <div class="cardtop"><span class="num">${String(p.number).padStart(2,'0')}${p.popular?' · 리뷰/소개 확인':''}</span><span class="tag">${esc(p.cat)}</span></div>
+    <h3><label for="check-${p.id}">${esc(p.name)}</label></h3>
+    ${p.menu?`<p class="menu">${esc(p.menu)}</p>`:''}
+    <p>${esc(p.addr.replace('서울특별시 서대문구 ',''))}</p>
+    ${p.coord?`<p class="dist">${distText(p)}</p>`:'<p class="note">좌표 미확인 · 지도에 직접 위치를 지정할 수 있어요</p>'}
+    ${p.coordNote?`<p class="note">${esc(p.coordNote)}</p>`:''}
+    ${p.userPinned?'<p class="note">내가 지정한 위치</p>':''}
+    <div class="links">
+      ${p.coord?`<button data-locate="${p.id}">지도에서 보기</button>`:''}
+      ${(!p.coord||p.userPinned)?`<button data-pick="${p.id}">${p.userPinned?'위치 다시 지정':'지도에 위치 지정'}</button>`:''}
+      <a href="${esc(naver(p))}" target="_blank" rel="noopener">네이버지도 ↗</a>
+      ${p.coord?`<a href="${esc(kakaoTo(p))}" target="_blank" rel="noopener">카카오 길찾기 ↗</a>`:''}
+      ${sourceLink(p)}
+      ${p.custom?`<button data-delete="${p.id}">삭제</button>`:''}
+    </div>
+  </div></article>`;
+}
+function render(){
+  const vs=visible();
+  $('totalStat').textContent=data.length;$('pickStat').textContent=selected.size;
+  $('listCount').textContent=`검색 결과 ${vs.length}곳 · 선택 ${selected.size}곳`;
+  $('candidateCount').textContent=`현재 룰렛 후보 ${selected.size}곳 · 모두 같은 확률`;
+  $('spin').disabled=busy||selected.size===0;
+  $('spin').textContent=busy?'맛있는 한 끼를 고르는 중…':selected.size?'점심 메뉴 고르기 ↻':'식당을 먼저 선택해주세요';
+  $('cards').innerHTML=vs.length?vs.map(card).join(''):'<div class="empty">조건에 맞는 식당이 없어요.<br>검색어와 음식 종류를 바꿔보세요.</div>';
+  $('history').textContent=history.length?'최근 선택: '+history.join(' · '):'';
+  renderMarkers(vs);
+  if(!busy)drawWheel();
+}
+
+/* ---------- 지도 (Leaflet + OpenStreetMap) ---------- */
+const map=L.map('map',{zoomControl:true,scrollWheelZoom:true,tap:true}).setView([37.5896,126.9447],16);
+const tiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 기여자'}).addTo(map);
+let tileErrors=0;tiles.on('tileerror',()=>{if(++tileErrors===4)toast('배경 지도를 불러오지 못하고 있어요. 핀·목록·룰렛은 계속 사용할 수 있습니다.')});
+L.marker(STATION,{icon:L.divIcon({className:'',html:'<div class="station">🚇 홍제역</div>',iconSize:[72,22],iconAnchor:[36,11]}),keyboard:false,zIndexOffset:-100}).addTo(map);
+const cluster=L.markerClusterGroup({maxClusterRadius:26,showCoverageOnHover:false,spiderfyOnMaxZoom:true,disableClusteringAtZoom:18});
+map.addLayer(cluster);
+const markers=new Map();let meMarker=null;
+
+function pinIcon(p){const cls=focused===p.id?'focus':selected.has(p.id)?'on':'';const size=focused===p.id?36:30;return L.divIcon({className:'',html:`<div class="pin ${cls}"><b>${p.number}</b></div>`,iconSize:[size,size],iconAnchor:[size/2,size],popupAnchor:[0,-size]})}
+function popupHtml(p){
+  const on=selected.has(p.id);
+  return `<div class="pop"><b>${esc(p.name)}</b><p>${esc(p.cat)}${p.menu?' · '+esc(p.menu):''}</p><p>${esc(p.addr.replace('서울특별시 ',''))}</p><p style="color:#365e4b">${distText(p)}</p>
+  <div class="row"><button data-toggle="${p.id}" ${busy?'disabled':''}>${on?'✓ 후보에서 빼기':'＋ 룰렛 후보에 담기'}</button></div>
+  <div class="row"><a href="${esc(naver(p))}" target="_blank" rel="noopener">네이버지도 ↗</a><a href="${esc(kakaoTo(p))}" target="_blank" rel="noopener">카카오 길찾기 ↗</a></div></div>`;
+}
+function renderMarkers(vs){
+  let openId=null;for(const[id,m]of markers)if(m.isPopupOpen())openId=id;
+  const want=new Set(vs.filter(p=>p.coord).map(p=>p.id));
+  for(const[id,m]of markers)if(!want.has(id)){cluster.removeLayer(m);markers.delete(id)}
+  const add=[];
+  for(const p of vs){if(!p.coord)continue;let m=markers.get(p.id);
+    if(!m){m=L.marker(p.coord,{icon:pinIcon(p),title:p.name,riseOnHover:true});m.bindPopup(()=>popupHtml(p),{maxWidth:260});m.on('click',()=>{focused=p.id;highlightCard()});markers.set(p.id,m);add.push(m)}
+    else{m.setLatLng(p.coord);m.setIcon(pinIcon(p));if(m.isPopupOpen())m.setPopupContent(popupHtml(p))}
+    m.setZIndexOffset(focused===p.id?1000:selected.has(p.id)?200:0);
+  }
+  if(add.length)cluster.addLayers(add);
+  if(openId){const m=markers.get(openId);if(m&&!m.isPopupOpen()&&map.hasLayer(m))m.openPopup()}
+  $('mapCount').textContent=`지도 표시 ${want.size}곳 / 좌표 확인 ${data.filter(p=>p.coord).length}곳`;
+}
+function highlightCard(){document.querySelectorAll('.card.focused').forEach(c=>c.classList.remove('focused'));const c=$('card-'+focused);if(c)c.classList.add('focused')}
+document.addEventListener('click',ev=>{const b=ev.target.closest('.leaflet-popup [data-toggle]');if(b){ev.preventDefault();ev.stopPropagation();toggle(b.dataset.toggle)}},true);
+function locate(id,zoom=18){const p=data.find(p=>p.id===id);if(!p?.coord)return;focused=id;
+  // 현재 필터에 가려진 식당도 보이게
+  if(!visible().some(v=>v.id===id)){category='전체';$('query').value='';$('scope').value='all';syncFilterButtons()}
+  render();
+  const m=markers.get(id);
+  $('map').scrollIntoView({behavior:'smooth',block:'center'});
+  if(m)cluster.zoomToShowLayer(m,()=>{map.setView(p.coord,Math.max(map.getZoom(),zoom));m.openPopup()});
+}
+function fitAll(){const pts=visible().filter(p=>p.coord).map(p=>p.coord);if(!pts.length)return toast('현재 검색 결과에는 좌표가 있는 식당이 없습니다.');map.fitBounds(L.latLngBounds(pts).pad(.12),{maxZoom:18})}
+$('fit').onclick=fitAll;
+$('station').onclick=()=>{origin={name:'홍제역',coord:STATION};map.setView(STATION,17);render();toast('거리 기준을 홍제역으로 바꿨어요.')};
+$('locateMe').onclick=()=>{if(!navigator.geolocation)return toast('이 브라우저는 위치 기능을 지원하지 않아요.');toast('현재 위치를 찾는 중…');
+  navigator.geolocation.getCurrentPosition(pos=>{const c=[pos.coords.latitude,pos.coords.longitude];origin={name:'내 위치',coord:c};
+    if(meMarker)meMarker.setLatLng(c);else meMarker=L.marker(c,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18],iconAnchor:[9,9]}),zIndexOffset:2000,title:'내 위치'}).addTo(map);
+    map.setView(c,17);$('sort').value='near';render();toast('내 위치 기준으로 가까운 순 정렬했어요.')},
+  ()=>toast('위치를 가져오지 못했어요. 브라우저 위치 권한을 확인해주세요.'),{enableHighAccuracy:true,timeout:10000,maximumAge:60000})};
+
+/* 좌표 없는 식당: 지도에 직접 위치 지정 */
+function startPick(id){const p=data.find(p=>p.id===id);if(!p||busy)return;pickingId=id;document.body.classList.add('picking');$('map').scrollIntoView({behavior:'smooth',block:'center'});toast(`지도에서 ‘${p.name}’ 위치를 눌러주세요. (Esc로 취소)`)}
+map.on('click',e=>{if(!pickingId)return;const c=[+e.latlng.lat.toFixed(7),+e.latlng.lng.toFixed(7)];if(!validCoord(c)){toast('서울 범위 안에서 지정해주세요.');return}
+  const p=data.find(p=>p.id===pickingId);pinned[p.id]=c;p.coord=c;p.userPinned=true;const id=pickingId;pickingId=null;document.body.classList.remove('picking');save();locate(id,map.getZoom());toast('위치를 저장했어요.')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pickingId){pickingId=null;document.body.classList.remove('picking');toast('위치 지정을 취소했어요.')}});
+
+/* ---------- 이벤트 ---------- */
+$('filters').innerHTML=cats.map(c=>`<button data-cat="${c}">${c}</button>`).join('');
+function syncFilterButtons(){[...$('filters').children].forEach(x=>x.classList.toggle('active',x.dataset.cat===category))}syncFilterButtons();
+$('newCat').innerHTML=cats.slice(1).map(c=>`<option>${c}</option>`).join('');
+$('filters').onclick=e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;syncFilterButtons();render()}};
+$('query').oninput=render;$('scope').onchange=render;$('sort').onchange=render;
+$('cards').onchange=e=>{if(e.target.dataset.check)toggle(e.target.dataset.check)};
+$('cards').onclick=e=>{const a=e.target.closest('[data-locate]'),d=e.target.closest('[data-delete]'),k=e.target.closest('[data-pick]');
+  if(a)locate(a.dataset.locate);if(k)startPick(k.dataset.pick);
+  if(d&&!busy){const id=d.dataset.delete;data=data.filter(p=>p.id!==id);selected.delete(id);delete pinned[id];render();save()}};
+function bulk(mode){if(busy)return toast('룰렛이 멈춘 뒤 변경해주세요.');if(mode==='clear')selected.clear();else visible().forEach(p=>mode==='add'?selected.add(p.id):selected.delete(p.id));rotation=0;render();save()}
+$('selectVisible').onclick=()=>bulk('add');$('clearVisible').onclick=()=>bulk('remove');$('clearAll').onclick=()=>bulk('clear');
+
+/* ---------- 룰렛 ---------- */
+const colors=['#dce8d6','#f3c9a8','#b9cdbb','#f5dfa1','#c7dce1','#e9c8c5','#d6d0e3','#d7ddab'];
+const candidates=()=>data.filter(p=>selected.has(p.id));
+function drawWheel(items=candidates()){const c=$('wheel').getContext('2d'),n=items.length;c.clearRect(0,0,640,640);c.save();c.translate(320,320);c.rotate(rotation);
+  if(!n){c.fillStyle='#e3e8dc';c.beginPath();c.arc(0,0,290,0,Math.PI*2);c.fill()}
+  else items.forEach((p,i)=>{const a=i*2*Math.PI/n-Math.PI/2,b=(i+1)*2*Math.PI/n-Math.PI/2;c.beginPath();c.moveTo(0,0);c.arc(0,0,290,a,b);c.closePath();c.fillStyle=colors[i%colors.length];c.fill();c.strokeStyle='#fff';c.lineWidth=3;c.stroke();
+    c.save();c.rotate((a+b)/2);c.textAlign='right';c.fillStyle='#283a33';c.font=`bold ${n>20?16:n>12?20:23}px sans-serif`;const label=n>16?'#'+p.number:p.name.length>10?p.name.slice(0,9)+'…':p.name;c.fillText(label,263,8);c.restore()});
+  c.restore();c.beginPath();c.arc(320,320,64,0,Math.PI*2);c.fillStyle='#fff';c.fill();c.strokeStyle='#f0efe6';c.lineWidth=5;c.stroke();c.fillStyle='#365e4b';c.font='bold 26px sans-serif';c.textAlign='center';c.fillText(n?'한 끼':'선택',320,330)}
+function randomIndex(n){const a=new Uint32Array(1),limit=Math.floor(4294967296/n)*n;do{crypto.getRandomValues(a)}while(a[0]>=limit);return a[0]%n}
+$('spin').onclick=()=>{const items=candidates();if(busy||!items.length)return;
+  const idx=randomIndex(items.length),winner=items[idx],tau=2*Math.PI,part=tau/items.length,target=(tau-(idx+.5)*part)%tau,start=rotation,end=start+tau*5+((target-start%tau+tau)%tau);
+  busy=true;map.closePopup();render();$('result').textContent='오늘의 한 끼를 고르고 있어요…';
+  const begin=performance.now(),duration=matchMedia('(prefers-reduced-motion: reduce)').matches?50:3800;
+  function frame(now){const t=Math.min(1,(now-begin)/duration);rotation=start+(end-start)*(1-(1-t)**4);drawWheel(items);
+    if(t<1)return requestAnimationFrame(frame);
+    rotation=end%tau;busy=false;history=[winner.name,...history].slice(0,4);focused=winner.id;render();
+    $('result').innerHTML=`오늘의 점심은<strong>${esc(winner.name)}</strong>${esc(winner.menu||winner.cat)}${winner.coord?`<br><span style="color:#365e4b">${distText(winner)}</span>`:''}<br>
+      ${winner.coord?'<button id="winnerMap">지도에서 보기</button>':''}<a href="${esc(naver(winner))}" target="_blank" rel="noopener">네이버지도 ↗</a>${winner.coord?`<a href="${esc(kakaoTo(winner))}" target="_blank" rel="noopener">카카오 길찾기 ↗</a>`:''}`;
+    if(winner.coord){const m=markers.get(winner.id);map.setView(winner.coord,17);if(m)cluster.zoomToShowLayer(m,()=>m.openPopup());$('winnerMap').onclick=()=>locate(winner.id)}
+    save()}
+  requestAnimationFrame(frame)};
+
+/* ---------- 추가 / 백업 ---------- */
+$('add').onclick=()=>{if(busy)return toast('룰렛이 멈춘 뒤 추가해주세요.');$('addDialog').showModal()};
+$('cancelAdd').onclick=()=>$('addDialog').close();
+$('addForm').onsubmit=e=>{e.preventDefault();const name=$('newName').value.trim(),addr=$('newAddr').value.trim();if(!name||!addr)return;
+  const p={id:'u'+Date.now(),name,addr,cat:$('newCat').value,menu:$('newMenu').value.trim(),custom:true,coord:null,number:Math.max(...data.map(p=>p.number))+1};
+  data.push(p);selected.add(p.id);$('addDialog').close();$('addForm').reset();render();save();toast('식당을 추가했어요. 카드에서 지도 위치를 지정할 수 있어요.')};
+$('export').onclick=()=>{const blob=new Blob([JSON.stringify(state(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='홍제한끼_백업.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$('import').onclick=()=>{if(busy)return toast('룰렛이 멈춘 뒤 불러와주세요.');$('importFile').click()};
+$('importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  try{if(f.size>1000000)throw Error();const s=JSON.parse(await f.text());
+    if(![1,2].includes(s.version)||!Array.isArray(s.selected)||!Array.isArray(s.custom)||s.custom.length>300||!s.custom.every(customValid)||new Set(s.custom.map(p=>p.id)).size!==s.custom.length)throw Error();
+    load(s);markers.forEach(m=>cluster.removeLayer(m));markers.clear();rotation=0;render();save();toast('백업을 불러왔습니다.')}
+  catch{toast('올바른 홍제 한 끼 백업 파일이 아닙니다.')}e.target.value=''};
+
+render();fitAll();
+</script>
+</body>
+</html>
